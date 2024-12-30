@@ -1,0 +1,61 @@
+---
+title: "Streaming"
+author: "Soryn Lurding"
+date: "2024-12-30"
+output: pdf_document
+---
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+library(sampleSelection)
+library(modelsummary)
+library(tidyverse)
+library(truncreg)
+library(censReg)
+library(AER)
+load("~/Downloads/streaming_data.RData")
+streaminghours<- data.frame(age,coupon,income,streaminghours)
+```
+
+
+You are given data on people watching streaming tv. You know the age of the person, their income, and if they received a coupon for the service. You can also know the number of streaming hours for each person during a given week. Use the dataset "streaming_data.RData" for this question
+
+a) Find the descriptive statistics of the dataset.(i.e use data summary) and a histogram of streaming hours. 
+```{r}
+library(markdown)
+modelsummary::datasummary_skim(streaminghours)
+
+hist(streaminghours$streaminghours, main = "Streaming Hours Distribution", xlab = "Streaming Hours", col = "pink")
+
+```
+
+b) Run OLS on the dataset.Estimate a model of streaming hours on the explanatory variables. Call this estimate reg1.
+```{r}
+reg1 <- lm(streaminghours ~ age + coupon + income, data = streaminghours)
+```
+
+c) Notice that the number of streaming hours cannot be negative. Run a Tobit model to estimate streaming hours. Call this estimate reg2.
+```{r}
+reg2 <- tobit(streaminghours ~ age + coupon + income, data = streaminghours)
+```
+
+d) Let's also try a truncated regression (i.e. use `library(truncreg)`)
+```{r}
+reg3 <- truncreg(streaminghours ~ age + coupon + income, data = streaminghours, point = 0, direction = "left")
+```
+
+e) Display all of the regressions in a single table using `modelsummary`. What is different about the estimates in the three models. 
+```{r}
+modelsummary(list("OLS"=reg1, "Tobit"=reg2, "Truncated"=reg3), coef_rename = c("age"="Age", "coupon"="Coupon", "income"="Income", "sigma"="Sigma"), title = "Streaming Hours Among People", stars=TRUE)
+```
+
+The OLS model has the highest intercept but is lower than the other models values for Age, Coupon, and has a value of zero for the income. The standard errors for the OLS model are also smaller than the other models. The Intercept for the OLS model is significant at the 0.001 level, Age is significant at the 0.01 level, coupon is not significant, and Incomes value of zero is significant at the 0.001 level. 
+
+The Tobit model has the second highest intercept out of all of the models, at a 0.05 significance level. Age and Income (value of zero) are also significant at the 0.001 level. The beta for Age is higher than the OLS model but smaller than the Truncated model. The beta coupon is not significant and is smaller than the Truncated but larger than the beta coupon in the OLS model. The standard errors are also larger than the OLS model but smaller than the Truncated model.
+
+The Truncated model has the lowest intercept and it is not significant. The betas Age and Coupon are much larger than the other models and only Age is significant at the 0.05 level. The Truncated model is the only model with a value for income, which is negative and significant at the 0.05 level. It is also the only model with a sigma value (significant at the 0.001 level). All of the standard errors for the Truncated model are higher than the other models.
+
+
+f) What is the marginal effect of coupons in each of the models?
+
+None of the betas for Coupon are significant across all three models. In the OLS model the marginal effect of a coupon is a 0.159 increase in streaming hours. However, the standard error in the OLS model for this beta is 0.311 which is almost 2 times the size of the beta. Similarly, the marginal effect for the Tobit model is 0.454 with a standard error of 0.769. This can be interpreted as a coupon would increase streaming hours by 0.454.
+The largest difference between the marginal effect and standard error is in the Truncated model with values of 11.683 and a standard error of 145.22. Which is over 12 times the marginal effect. Such high standard errors explain why none of the betas for coupon are significant. This can be interpreted as a coupon increases streaming hours by 11.683.
+The large standard errors in the Truncated model indicates one of the assumptions does not hold. In this case, it was inappropriate to use Truncated regression because it was censored data.
